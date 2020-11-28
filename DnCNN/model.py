@@ -70,7 +70,7 @@ class DnCNN(nn.Module):
         # which is used in the FFDNet paper published by the same author later.
         for layer in self.modules():
             if isinstance(layer, nn.Conv2d):
-                nn.init.orthogonal_(layer)
+                nn.init.orthogonal_(layer.weight)
                 print("Orthogonal initialization for nn.Conv2d layer.")
 
                 # Initialize the bias in the nn.Conv2d with constant 0.

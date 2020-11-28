@@ -53,7 +53,7 @@ def restore_model(resume_iters, model_save_dir, net: nn.Module, train=True):
     return net
 
 
-def train_func(config):
+def train_model(config):
     # Define hyper-parameters.
     depth = int(config["DnCNN"]["depth"])
     n_channels = int(config["DnCNN"]["n_channels"])
@@ -63,7 +63,7 @@ def train_func(config):
     epochs = int(config["DnCNN"]["epoch"])
 
     # Define device.
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Initiate a DnCNN instance.
     # Load the model to device and set the model to training.
@@ -79,14 +79,15 @@ def train_func(config):
     optimizer = optim.Adam(model.parameters(), )
     criterion = nn.MSELoss(reduction="sum")
 
-    # Train the model.
-    for epoch in range(epochs):
-        for idx, (input, label) in enumerate(DataLoader):
-            input, label = input.to(device), label.to(device)
-
-            output = model(input)
-
-            loss = criterion(output, label) / 2
+    # # Train the model.
+    # for epoch in range(epochs):
+    #     for idx, data in enumerate(DataLoader):
+    #         inputs, labels = data
+    #         inputs, labels = inputs.to(device), labels.to(device)
+    #
+    #         outputs = model(inputs)
+    #
+    #         loss = criterion(outputs, labels) / 2
 
 
 
@@ -95,4 +96,4 @@ if __name__=="__main__":
 
     config.read("cfg.ini")
 
-    train_func(config)
+    train_model(config)
