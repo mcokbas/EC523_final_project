@@ -1,6 +1,7 @@
 import numpy as np
+import torch
 
-def poissonpoissonnoise(X, min_eta, max_eta , Lambda, t):
+def poissonpoissonnoise(X, min_eta, max_eta, Lambda, t):
     """
     Generate observation y (total SE counts) which obeys compound Poisson-Poisson distribution
     with total dose Lambda*t. The ground truth image is a 2-D array, scaled to [min_eta, max_eta]
@@ -34,32 +35,41 @@ def poissonpoissonnoise(X, min_eta, max_eta , Lambda, t):
     #Lambda: Poisson process rate per unit time
     #t: Dwell time
 
-    # Get Dimensions of Image
-    [d1, d2] = X.shape
-    # Vectorize Image
-    X = np.reshape(X, [d1*d2, 1])
+    if isinstance(X, torch.Tensor):
+        X = X.cpu().detach().numpy()
 
-    #Means for # of SE's (M)
-    eta = (max_eta - min_eta)*X + min_eta
+    if X.ndim == 2:
+        # Get Dimensions of Image
+        [d1, d2] = X.shape
+        # Vectorize Image
+        X = np.reshape(X, (d1*d2, 1))
+    elif X.ndim == 3:
+        [color_cn, d1, d2] = X.shape
+        X = np.reshape(X, (color_cn, d1 * d2, 1))
+
+    # Rescale X to be in [max_eta, min_eta]
+    slope = (max_eta - min_eta) / (X.max() - X.min())
+    distance = min_eta - X.min() * slope
+    eta = slope * X + distance
 
     # Generate time-resolved ions
-    ions = np.random.poisson(lam=Lambda, size=(X.size, t))
+    ions = np.random.poisson(lam=Lambda, size=(*X.shape[:-1], t))
 
-    # M is the total ions.
-    M = np.sum(ions, axis=1)
+    # # M is the total ions.
+    # M = np.sum(ions, axis=1)
 
     # Create time-resolved observations y_tr
     y_tr = np.random.poisson(eta * ions)
 
     # y is the total SE counts.
-    y = np.sum(y_tr, axis=1)
+    y = np.sum(y_tr, axis=-1)
 
-    #Rescale image so that it is \in [0,1]
+    # Rescale image so that it is \in [0,1]
     y = y / np.max(y)
 
-    #Reshape for image
-    y_tr = y_tr.reshape([d1, d2, t])
-    y = np.reshape(y, [d1, d2])
+    # Reshape for image
+    y_tr = np.reshape(y_tr, newshape=(*X.shape[:-2], d1, d2, t))
+    y = np.reshape(y, newshape=(*X.shape[:-2], d1, d2))
 
     return y, y_tr
 

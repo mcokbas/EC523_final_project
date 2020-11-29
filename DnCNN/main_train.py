@@ -89,7 +89,7 @@ def train_model(config):
     # Train the model.
     for epoch in range(epochs):
         # For each epoch, generate clean augmented patches from the training directory.
-        # Convert the data from uint8 to float32.
+        # Convert the data from uint8 to float32 then scale them to make it in [0, 1].
         # Then make the patches to be of shape [N, C, H, W],
         # where N is the batch size, C is the number of color channels.
         # H and W are height and width of image patches.
@@ -103,6 +103,7 @@ def train_model(config):
                                   shuffle=True)  # TODO: if drop_last=True, the dropping in the
                                                  # TODO: data_generator is not necessary?
 
+        train_loader_test = next(iter(train_loader))
 
         for idx, data in enumerate(train_loader):
             inputs, labels = data
