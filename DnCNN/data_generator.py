@@ -29,7 +29,7 @@ class DenoisingDatatset(Dataset):
 
     """
     def __init__(self, xs, eta_min, eta_max, dose):
-        super().__init__(self)
+        super(DenoisingDatatset, self).__init__()
         self.xs = xs
         # self.sigma = sigma
         self.eta_min = eta_min
