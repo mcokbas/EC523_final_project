@@ -28,10 +28,10 @@ class DenoisingDatatset(Dataset):
             dose (float): ion dose, e.g. 20.0.
 
     """
-    def __init__(self, xs, sigma, eta_min, eta_max, dose):
+    def __init__(self, xs, eta_min, eta_max, dose):
         super().__init__(self)
         self.xs = xs
-        self.sigma = sigma
+        # self.sigma = sigma
         self.eta_min = eta_min
         self.eta_max = eta_max
         self.dose = dose
