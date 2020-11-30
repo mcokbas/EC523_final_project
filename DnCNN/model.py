@@ -71,7 +71,7 @@ class DnCNN(nn.Module):
         for layer in self.modules():
             if isinstance(layer, nn.Conv2d):
                 nn.init.orthogonal_(layer.weight)
-                print("Orthogonal initialization for nn.Conv2d layer.")
+                # print("Orthogonal initialization for nn.Conv2d layer.")
 
                 # Initialize the bias in the nn.Conv2d with constant 0.
                 if layer.bias is not None:
@@ -98,10 +98,10 @@ class DnCNN(nn.Module):
             v: (N, C, H, W)
         """
 
-        # Compute the estimate of ground truth: x_hat.
-        x_hat = self.dncnn(x)
+        # Compute the estimate of the residual: v_hat.
+        v_hat = self.dncnn(x)
 
-        # Return the residual image.
-        v = x - x_hat
-        return v
+        # Return the ground truth estimate.
+        x_hat = x - v_hat
+        return x_hat
 

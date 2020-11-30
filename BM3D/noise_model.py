@@ -10,7 +10,7 @@ def poissonpoissonnoise(X, min_eta, max_eta, Lambda, t):
         X: ground truth image, i.e. mean SE yield.
         min_eta: minimum eta value after scaling and shifting.
         max_eta: maximum eta value after scaling and shifting.
-        Lambda: dose rate.
+        Lambda: dose rate. Dose for each sub-acquisition.
         t: dwell time.
 
     Returns:
@@ -20,6 +20,7 @@ def poissonpoissonnoise(X, min_eta, max_eta, Lambda, t):
     Shapes:
         input:
             X: [d1, d2], d1 and d2 are height and width of the image.
+               or [c_chanel, d1, d2], where c_chanel is the number of color channel.
             min_eta: scalar.
             max_eta: scalar.
             Lambda: scalar
@@ -48,9 +49,10 @@ def poissonpoissonnoise(X, min_eta, max_eta, Lambda, t):
         X = np.reshape(X, (color_cn, d1 * d2, 1))
 
     # Rescale X to be in [max_eta, min_eta]
-    slope = (max_eta - min_eta) / (X.max() - X.min())
-    distance = min_eta - X.min() * slope
-    eta = slope * X + distance
+    # slope = (max_eta - min_eta) / (X.max() - X.min())
+    # distance = min_eta - X.min() * slope
+    # eta = slope * X + distance
+    eta = (max_eta - min_eta) * X + min_eta
 
     # Generate time-resolved ions
     ions = np.random.poisson(lam=Lambda, size=(*X.shape[:-1], t))
@@ -66,6 +68,7 @@ def poissonpoissonnoise(X, min_eta, max_eta, Lambda, t):
 
     # Rescale image so that it is \in [0,1]
     y = y / np.max(y)
+    y = y.astype("float32")
 
     # Reshape for image
     y_tr = np.reshape(y_tr, newshape=(*X.shape[:-2], d1, d2, t))
