@@ -20,11 +20,11 @@ This folder includes 3 different jupyter notebooks: <br/>
 
 This code just uses content loss
 
-2)perceptual_denoising.ipynb
+2)  perceptual_denoising.ipynb
 
 This code uses both content and style loss
 
-3)perceptual_denoising_tv.ipynb
+3)  perceptual_denoising_tv.ipynb
 
-THis code uses combination of style loss, content loss and total variation
+This code uses combination of style loss, content loss and total variation
 
