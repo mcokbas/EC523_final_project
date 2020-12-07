@@ -2,6 +2,7 @@
 # Final Project for Deep Learning
 
 # BM3D
+This code is adapted from another github repository for our noise model
 For BM3D code there are some dependencies, you can use the following lines to install the dependencies: <br />
 <br />
 pip3 install bm3d
@@ -12,7 +13,7 @@ After installing dependencies, you can use the jupyter notebook, to use the code
 
 # DnCNN Perceptual
 
-DnCNN part of this code is based on the same github repo as the original DnCNN experiments are conducted. <br />
+DnCNN part of this code is based on the same github repo as the original DnCNN experiments are conducted. To run these codes you need the training set of BSDS500 dataset. DnCNN part of this code is adapted from another github repository for our noise model <br />
 
 This folder includes 3 different jupyter notebooks: <br/>
 1)  perceptual_denoising_just_content.ipynb
