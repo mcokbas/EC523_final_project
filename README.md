@@ -17,7 +17,7 @@ After installing dependencies, you can use the jupyter notebook, to use the code
 
 # DnCNN Perceptual
 
-DnCNN part of this code is based on the same github repo as the original DnCNN experiments are conducted. To run these codes you need the training set of BSDS500 dataset. DnCNN part of this code is adapted from (https://github.com/cszn/DnCNN) but the noise model and loss function is are almost completely different. <br />
+DnCNN part of this code is based on the same github repo as the original DnCNN experiments are conducted. To run these codes you need the training set of BSDS500 dataset. DnCNN part of this code is adapted from (https://github.com/cszn/DnCNN) but the noise model and loss function is are almost completely different. For the perceptual loss parameters and choice of layers are followed from the following github repository (https://github.com/dxyang/StyleTransfer/)<br />
 
 This folder includes 3 different jupyter notebooks: <br/>
 1)  perceptual_denoising_just_content.ipynb (This code just uses content loss)
