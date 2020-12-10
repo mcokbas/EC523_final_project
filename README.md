@@ -1,6 +1,10 @@
 # EC523_final_project
 # Final Project for Deep Learning
 
+All the algorithms and results can be found in our presentation. Link can be found below:
+
+https://youtu.be/JGGUDAU3V34
+
 # BM3D
 This code is adapted from Tampere University codebase (http://www.cs.tut.fi/~foi/GCF-BM3D/) for our noise model
 For BM3D code there are some dependencies, you can use the following lines to install the dependencies: <br />
