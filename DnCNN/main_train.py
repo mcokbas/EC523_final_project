@@ -27,7 +27,7 @@ import datetime
 # np.random.seed(manualSeed)
 # torch.manual_seed(manualSeed)
 
-def save_model(net: nn.Module, model_save_dir, step, dose_total):
+def save_model(net: nn.Module, model_save_dir, step, dose_total, train_mode):
     """
     Save the trained model.
 
@@ -36,7 +36,11 @@ def save_model(net: nn.Module, model_save_dir, step, dose_total):
         model_save_dir: saved model directory.
         step: checkpoint.
     """
-    model_save_dir = Path(model_save_dir) / "dose{}".format(str(int(dose_total)))
+    if train_mode == "residual":
+        model_save_dir = Path(model_save_dir) / "res_learning_smaller_lr_dose{}".format(str(int(dose_total)))
+    elif train_mode == "direct":
+        model_save_dir = Path(model_save_dir) / "direct_predict_smaller_lr_dose{}".format(str(int(dose_total)))
+
     if not Path(model_save_dir).exists():
         Path.mkdir(model_save_dir)
     model_path = Path(model_save_dir) / "{}.pth".format(step + 1)
@@ -44,7 +48,6 @@ def save_model(net: nn.Module, model_save_dir, step, dose_total):
     torch.save(net.state_dict(), model_path)
 
     print("Saved model checkpoints {} into {}".format(step + 1, model_save_dir))
-
 
 def restore_model(resume_iters, model_save_dir, net: nn.Module, train=True):
     """
@@ -76,21 +79,45 @@ def restore_model(resume_iters, model_save_dir, net: nn.Module, train=True):
 
 
 class LossFunc(nn.Module):
-    def __init__(self, reduction="sum"):
+    def __init__(self, reduction="sum", weight_mse=0, weight_tv=0, weight_nll=1, total_dose=20.0):
         super(LossFunc, self).__init__()
         self.reduction = reduction
+        self.total_dose = total_dose
+
+        # Define the loss function forms.
         self.mse_loss = nn.MSELoss(reduction=reduction)
+        self.weight_mse = weight_mse
         # TODO: to add TV loss.
         # self.tv_loss =
+        self.weight_tv = weight_tv
         # TODO: to add likelihood
-        # self.log_loss =
+        # self.log_loss = self._nll_loss(x, img_noisy)
+        self.weight_nll = weight_nll
+
+    def _nll_loss(self, eta, y, eta_min, eta_max, y_max):
+        # mask = eta >= 1e-4
+        # loss = torch.log(eta[mask]) + \
+        #        torch.log(eta[mask] / self.total_dose + 1) + \
+        #        (y[mask] - eta[mask]) ** 2 / (eta[mask]) / (eta[mask] / self.total_dose + 1)
+
+        # # If the eta is zero, add a very small value to it so that it wouldn't encounter nan.
+        # loss = torch.log(eta + 1e-7) + \
+        #        torch.log(eta / self.total_dose + 1) + \
+        #        (y - eta) ** 2 / (eta + 1e-7) / (eta / self.total_dose + 1)
+
+        # eta_scaled = eta * (eta_max - eta_min) + eta_min
+        loss = 0.0
+
+        return torch.sum(loss).div_(2).div_(y.size(0))
 
     def forward(self, logits, target):
         # Return the average MSE loss.
-        mse_loss = self.mse_loss(logits, target).div_(2)
+        mse_loss = self.weight_mse * self.mse_loss(logits, target).div_(2)
+        # nll_loss = self.weight_nll * self._nll_loss(logits, target)
+        # loss = mse_loss + nll_loss
         loss = mse_loss
         return loss
-
+    
 
 def train_model(config):
     # Define hyper-parameters.
@@ -107,11 +134,16 @@ def train_model(config):
     eta_max = float(config["DnCNN"]["eta_max"])
     dose = float(config["DnCNN"]["dose"])
     model_save_dir = config["DnCNN"]["model_save_dir"]
+    train_mode = config["DnCNN"]["train_mode"]
+    log_file_name = config["DnCNN"]["log_file_name"]
 
     # Save logs to txt file.
     log_dir = config["DnCNN"]["log_dir"]
-    log_dir = Path(log_dir) / "dose{}".format(str(int(dose * 100)))
-    log_file = log_dir / "train_result.txt"
+    if train_mode == "residual":
+        log_dir = Path(log_dir) / "res_learning_smaller_lr_dose{}".format(str(int(dose * 100)))
+    elif train_mode == "direct":
+        log_dir = Path(log_dir) / "direct_predict_smaller_lr_dose{}".format(str(int(dose * 100)))
+    log_file = log_dir / log_file_name
 
     # Define device.
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -127,9 +159,9 @@ def train_model(config):
     model.train()
 
     # Define loss criterion and optimizer
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    scheduler = MultiStepLR(optimizer, milestones=[30, 60, 90], gamma=0.2)
-    criterion = LossFunc(reduction="mean")
+    optimizer = optim.Adam(model.parameters(), lr=5e-5)
+    scheduler = MultiStepLR(optimizer, milestones=[20, 40, 60], gamma=0.2)
+    criterion = LossFunc(reduction="mean", weight_mse=1, weight_nll=0, total_dose=dose * 100)
 
     # Get a validation test set and corrupt with noise for validation performance.
     # For every epoch, use this pre-determined noisy images.
@@ -143,7 +175,18 @@ def train_model(config):
         img = np.expand_dims(img, axis=0)
         img_noisy, _ = nm(img, eta_min, eta_max, dose, t=100)
         xs_test.append((img_noisy, img))
-
+    
+    # Get a validation train set and corrupt with noise.
+    # For every epoch, use this pre-determined noisy images to see the training performance.
+    train_file_list = glob.glob(train_data_dir + "/*png")
+    xs_train = []
+    for i in range(len(train_file_list)):
+        img = cv2.imread(train_file_list[i], 0)
+        img = np.array(img, dtype="float32") / 255.0
+        img = np.expand_dims(img, axis=0)
+        img_noisy, _ = nm(img, eta_min, eta_max, dose, t=100)
+        xs_train.append((img_noisy, img))
+    
     # Train the model.
     loss_store = []
     epoch_loss_store = []
@@ -178,7 +221,7 @@ def train_model(config):
 
             optimizer.zero_grad()
 
-            outputs = model(inputs)
+            outputs = model(inputs, mode=train_mode)
 
             loss = criterion(outputs, labels)
 
@@ -190,7 +233,7 @@ def train_model(config):
             optimizer.step()
 
             if idx % 100 == 0:
-                print("Epoch [{} / {}], step [{} / {}], loss = {:.5f}, lr = {:.6f}, elapsed time = {:.2f}s".format(
+                print("Epoch [{} / {}], step [{} / {}], loss = {:.5f}, lr = {:.8f}, elapsed time = {:.2f}s".format(
                     epoch + 1, epochs, idx, len(train_loader), loss.item(), *scheduler.get_last_lr(), timer()-t_start))
 
         epoch_loss_store.append(epoch_loss / len(train_loader))
@@ -198,30 +241,28 @@ def train_model(config):
         # At each epoch validate the result.
         model = model.eval()
 
-        # # Firstly validate on training sets. This takes a long time so I commented.
-        # tr_psnr = []
-        # tr_ssim = []
-        # # t_start = timer()
-        # with torch.no_grad():
-        #     for idx, train_data in enumerate(train_loader):
-        #         inputs, labels = train_data
-        #         # print(inputs.shape)
-        #         # inputs = np.expand_dims(inputs, axis=0)
-        #         # inputs = torch.from_numpy(inputs).to(device)
-        #         inputs = inputs.to(device)
-        #         labels = labels.squeeze().numpy()
-        #
-        #         outputs = model(inputs)
-        #         outputs = outputs.squeeze().cpu().detach().numpy()
-        #
-        #         tr_psnr.append(peak_signal_noise_ratio(labels, outputs))
-        #         tr_ssim.append(structural_similarity(outputs, labels))
-        # psnr_tr_store.append(sum(tr_psnr) / len(tr_psnr))
-        # ssim_tr_store.append(sum(tr_ssim) / len(tr_ssim))
-        # # print("Elapsed time = {}".format(timer() - t_start))
-        #
-        # print("Validation on train set: epoch [{} / {}], aver PSNR = {:.2f}, aver SSIM = {:.4f}".format(
-        #     epoch + 1, epochs, psnr_tr_store[-1], ssim_tr_store[-1]))
+        # Firstly validate on training sets. This takes a long time so I commented.
+        tr_psnr = []
+        tr_ssim = []
+        # t_start = timer()
+        with torch.no_grad():
+            for idx, test_data in enumerate(xs_train):
+                inputs, labels = test_data
+                inputs = np.expand_dims(inputs, axis=0)
+                inputs = torch.from_numpy(inputs).to(device)
+                labels = labels.squeeze()
+
+                outputs = model(inputs, mode=train_mode)
+                outputs = outputs.squeeze().cpu().detach().numpy()
+
+                tr_psnr.append(peak_signal_noise_ratio(labels, outputs))
+                tr_ssim.append(structural_similarity(outputs, labels))
+        psnr_tr_store.append(sum(tr_psnr) / len(tr_psnr))
+        ssim_tr_store.append(sum(tr_ssim) / len(tr_ssim))
+        # print("Elapsed time = {}".format(timer() - t_start))
+
+        print("Validation on train set: epoch [{} / {}], aver PSNR = {:.2f}, aver SSIM = {:.4f}".format(
+            epoch + 1, epochs, psnr_tr_store[-1], ssim_tr_store[-1]))
 
         # Validate on test set
         val_psnr = []
@@ -233,7 +274,7 @@ def train_model(config):
                 inputs = torch.from_numpy(inputs).to(device)
                 labels = labels.squeeze()
 
-                outputs = model(inputs)
+                outputs = model(inputs, mode=train_mode)
                 outputs = outputs.squeeze().cpu().detach().numpy()
 
                 val_psnr.append(peak_signal_noise_ratio(labels, outputs))
@@ -251,35 +292,20 @@ def train_model(config):
         scheduler.step()
 
         # Save model
-        save_model(model, model_save_dir, epoch, dose * 100)
+        save_model(model, model_save_dir, epoch, dose * 100, train_mode)
 
         # Save the loss and validation PSNR, SSIM.
 
         if not log_dir.exists():
             Path.mkdir(log_dir)
         with open(log_file, "a+") as fh:
-            # fh.write("{} Epoch [{} / {}], loss = {:.6f}, train PSNR = {:.2f}dB, train SSIM = {:.4f}, "
-            #          "validation PSNR = {:.2f}dB, validation SSIM = {:.4f}".format(
-            #          datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:"),
-            #          epoch + 1, epochs, epoch_loss_store[-1],
-            #          psnr_tr_store[-1], ssim_tr_store[-1],
-            #          psnr_store[-1], ssim_store[-1]))
-            fh.write("{} Epoch [{} / {}], loss = {:.6f}, "
+            fh.write("{} Epoch [{} / {}], loss = {:.6f}, train PSNR = {:.2f}dB, train SSIM = {:.4f}, "
                      "validation PSNR = {:.2f}dB, validation SSIM = {:.4f}\n".format(
                      datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:"),
                      epoch + 1, epochs, epoch_loss_store[-1],
+                     psnr_tr_store[-1], ssim_tr_store[-1],
                      psnr_store[-1], ssim_store[-1]))
-
-        # np.savetxt(log_file, np.hstack((epoch + 1, epoch_loss_store[-1], psnr_store[-1], ssim_store[-1])), fmt="%.6f", delimiter=",  ")
-
-        fig, ax = plt.subplots()
-        ax.plot(loss_store[-len(train_loader):])
-        ax.set_title("Last 1862 losses")
-        ax.set_xlabel("iteration")
-        fig.show()
-
-    # print("Continue")
-
+            
 
 if __name__=="__main__":
     config = configparser.ConfigParser()
