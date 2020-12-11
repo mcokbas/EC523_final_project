@@ -26,3 +26,12 @@ This folder includes 3 different jupyter notebooks: <br/>
 
 3)  perceptual_denoising_tv.ipynb (This code uses combination of style loss, content loss and total variation)
 
+# NLL Folder Explanation
+#### The noise_model.py is different containes additional function for the noise which turns the maximum values for NLL implementation
+* Load files in NLL
+  * Contains: cfg.ini, data_generator.py, model.py, noise_model.py, NLL_Regularization.ipynb, test.ipynb
+* Change cfg.ini for dataset  and model log/weight save directiories
+* Run NLL_Regularization.ipynb to run the training code
+* Run test.ipynb to test
+
+DnCNN part of the code is adapted from (https://github.com/cszn/DnCNN)
