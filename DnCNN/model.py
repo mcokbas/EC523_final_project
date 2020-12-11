@@ -81,7 +81,7 @@ class DnCNN(nn.Module):
                 nn.init.constant_(layer.bias, 0)
 
 
-    def forward(self, x):
+    def forward(self, x, mode="residual"):
         """
         Feed noisy image to the DnCNN network and output residual image.
 
@@ -98,10 +98,20 @@ class DnCNN(nn.Module):
             v: (N, C, H, W)
         """
 
-        # Compute the estimate of the residual: v_hat.
-        v_hat = self.dncnn(x)
+       # Instead of directly predicting an estimate for the ground truth of eta,
+       # it outputs the noise first and the x_hat is the noisy image - noise (x - v_hat).
+       if mode.lower() == "residual":
+           # Compute the estimate of the residual: v_hat.
+           v_hat = self.dncnn(x)
 
-        # Return the ground truth estimate.
-        x_hat = x - v_hat
-        return x_hat
+           # Return the ground truth estimate.
+           x_hat = x - v_hat
+           return x_hat
+        # Directly predict the clean image.
+       elif mode.lower() == "direct":
+           x_hat = self.dncnn(x)
+           return x_hat
+       else:
+           assert mode in ["residual", "direct"], "You have to choose between ['residual', 'direct']."
+
 
