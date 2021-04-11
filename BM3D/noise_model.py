@@ -67,7 +67,10 @@ def poissonpoissonnoise(X, min_eta, max_eta, Lambda, t):
     y = np.sum(y_tr, axis=-1)
 
     # Rescale image so that it is \in [0,1]
-    y = y / np.max(y)
+    # y = y / np.max(y)
+    # Rescale by a constant 255. Rule of thumb, if total dose = 20, eta in [2, 8], 
+    # it's not very likely get observation y to be greater than 255.
+    y = y / 255.0
     y = y.astype("float32")
 
     # Reshape for image
